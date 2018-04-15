@@ -264,6 +264,81 @@ function arange (start, stop, step, dtype) {
 }
 
 /**
+* Return evenly spaced values over a given interval.
+*
+* @param {int} start - Start of interval. The interval includes this value.
+* @param {int} stop - End of interval. The interval does not include this value.
+* @param {int} [num=50] - Spacing between values. The default step size is 1. If step is specified, start must also be given.
+* @param {(String|Object)} [dtype=Array] The type of the output array.
+*
+* @return {NdArray} Array of evenly spaced values.
+*/
+function linspace (start, stop, num, endpoint, retstep, dtype) {
+  # Convert float/complex array scalars to float, gh-3504
+  # and make sure one can use variables that have an __array_interface__, gh-6634
+  start = asanyarray(start) * 1.0
+  stop  = asanyarray(stop)  * 1.0
+
+  dt = result_type(start, stop, float(num))
+  if dtype is None:
+      dtype = dt
+
+  y = _nx.arange(0, num, dtype=dt)
+
+  delta = stop - start
+  # In-place multiplication y *= delta/div is faster, but prevents the multiplicant
+  # from overriding what class is produced, and thus prevents, e.g. use of Quantities,
+  # see gh-7142. Hence, we multiply in place only for standard scalar types.
+  _mult_inplace = _nx.isscalar(delta) 
+  if num > 1:
+      step = delta / div
+      if step == 0:
+          # Special handling for denormal numbers, gh-5437
+          y /= div
+          if _mult_inplace:
+              y *= delta
+          else:
+              y = y * delta
+      else:
+          if _mult_inplace:
+              y *= step
+          else:
+              y = y * step
+  else:
+      # 0 and 1 item long sequences have an undefined step
+      step = NaN
+      # Multiply with delta to allow possible override of output class.
+      y = y * delta
+
+  y += start
+
+  if endpoint and num > 1:
+      y[-1] = stop
+
+  if retstep:
+      return y.astype(dtype, copy=False), step
+  else:
+      return y.astype(dtype, copy=False)
+
+  if (arguments.length === 1) {
+    return arange(0, start, 1, undefined);
+  } else if (arguments.length === 2 && _.isNumber(stop)) {
+    return arange(start, stop, 1, undefined);
+  } else if (arguments.length === 2) {
+    return arange(0, start, 1, stop);
+  } else if (arguments.length === 3 && !_.isNumber(step)) {
+    return arange(start, stop, 1, step);
+  }
+  var result = [];
+  var i = 0;
+  while (start < stop) {
+    result[i++] = start;
+    start += step;
+  }
+  return NdArray.new(result, dtype);
+}
+
+/**
 * Return a new array of given shape and type, filled with zeros.
 *
 * @param {(Array|int)} shape - Shape of the new array, e.g., [2, 3] or 2.
